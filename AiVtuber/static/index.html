@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI VTuber Interface</title>
+    <style>
+        body { margin: 0; padding: 0; background: #121212; color: #fff; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        #control-panel { width: 350px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; background: #1e1e1e; border-right: 2px solid #333; z-index: 10; }
+        #canvas-container { flex: 1; position: relative; height: 100%; background: #1a1a1a; }
+        canvas { width: 100%; height: 100%; display: block; }
+        button { background: #28a745; color: white; border: none; padding: 12px; margin: 5px 0; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; }
+        button:hover { background: #218838; }
+        textarea { flex: 1; background: #2d2d2d; color: white; border: 1px solid #444; padding: 10px; border-radius: 4px; resize: none; margin-bottom: 10px; font-size: 14px; }
+        #text-input-container { display: flex; gap: 5px; margin-bottom: 5px; }
+        #text-input { flex: 1; padding: 10px; background: #2d2d2d; color: white; border: 1px solid #444; border-radius: 4px; font-size: 14px; }
+        #status { font-size: 14px; color: #00ffcc; margin-bottom: 10px; font-weight: bold; }
+    </style>
+
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/static/js/three.module.js",
+          "three/addons/loaders/GLTFLoader.js": "/static/js/GLTFLoader.js",
+          "three/addons/utils/BufferGeometryUtils.js": "/static/js/BufferGeometryUtils.js",
+          "@pixiv/three-vrm": "/static/js/three-vrm.module.js",
+          "@pixiv/three-vrm-animation": "/static/js/three-vrm-animation.module.js"
+        }
+      }
+    </script>
+</head>
+<body>
+
+    <div id="control-panel">
+        <h2>AI VTuber Panel</h2>
+        <div id="status">Status: Initializing Scene...</div>
+        <textarea id="chat-history" readonly placeholder="Conversation history will appear here..."></textarea>
+        
+        <div id="text-input-container">
+            <input type="text" id="text-input" placeholder="Type a message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { VRMLoaderPlugin } from '@pixiv/three-vrm';
+        import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        const light = new THREE.DirectionalLight(0xffffff, 0.5);
+        light.position.set(1.0, 1.0, 1.0).normalize();
+        scene.add(light);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const camera = new THREE.PerspectiveCamera(30.0, container.clientWidth / container.clientHeight, 0.1, 20.0);
+        camera.position.set(0.0, 1.35, 1.2);
+
+        //const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        //controls.enableDamping = true;
+        //controls.target.set(0.0, 1.35, 0.0);
+
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        let currentVrm = null;
+        const loader = new GLTFLoader();
+        
+        //loader.register((parser) => { return new VRMLoaderPlugin(parser); });
+
+        loader.register((parser) => new VRMLoaderPlugin(parser));
+
+        loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+
+        const modelUrl = '/static/models/THEMODEL.vrm';
+
+        //const modelUrl = 
+
+        // Register the VRM Animation parser into your main loader
+        //loader.register((parser) => new createVRMAnimationClip.VRMAnimationLoaderPlugin(parser));
+
+        loader.load(
+            modelUrl,
+            (gltf) => {
+                const vrm = gltf.userData.vrm;
+                if(vrm) {
+                    currentVrm = vrm;
+                    scene.add(vrm.scene);
+                    vrm.scene.rotation.y = Math.PI; 
+                    document.getElementById('status').innerText = "Status: Ready";
+                    setupBlinkingLoop();
+                    vrmMixer = new THREE.AnimationMixer(vrm.scene);
+
+                    function loadVrmaFile(name, filePath) {
+                        loader.load(filePath, (vrmaGltf) => {
+                            const vrmAnimation = vrmaGltf.userData.vrmAnimations[0];
+                            animationClips[name] = createVRMAnimationClip(vrmAnimation, vrm);
+                            console.log(`Loaded animation: ${name}`);
+                        });
+                    }
+
+                            loadVrmaFile('Showfullbody', '/static/animationfiles/VRMA_01.vrma');              //PUT YOUR ANIMATIONS HERE!!!!!!!--------------------------
+                            loadVrmaFile('Greeting', '/static/animationfiles/VRMA_02.vrma');
+                            loadVrmaFile('Peacesign', '/static/animationfiles/VRMA_03.vrma');
+                            loadVrmaFile('Shoot', '/static/animationfiles/VRMA_04.vrma');
+                            loadVrmaFile('Spin', '/static/animationfiles/VRMA_05.vrma');                            
+                            loadVrmaFile('Modelpose', '/static/animationfiles/VRMA_06.vrma');
+                            loadVrmaFile('Squat', '/static/animationfiles/VRMA_07.vrma');
+                            // Check if the server left an animation trigger in our storage box
+                            //const pendingAnim = localStorage.getItem('pendingAnimation');
+                            //if (pendingAnim) {
+                                // Clear the box so it doesn't loop or play again on a manual refresh
+                                //localStorage.removeItem('pendingAnimation');
+                            
+                                const pendingAnim = localStorage.getItem('pendingAnimation');
+                                if (pendingAnim) {
+                                    localStorage.removeItem('pendingAnimation');    
+                                    
+                                setTimeout(() => {
+                                    playVrmAnimation(pendingAnim);
+                                }, 1000); 
+                            }
+
+                } else {
+                    document.getElementById('status').innerText = "Status: Parsing error, not a true VRM";
+                }
+            },
+            undefined,
+            (error) => { console.error(error); document.getElementById('status').innerText = "Status: VRM File Not Found"; }
+        );
+
+        let vrmMixer = null;
+        let currentAction = null;
+        const animationClips = {};
+
+        const clock = new THREE.Clock();
+        let mouthOpenValue = 0;
+        let blinkValue = 0;
+        let isBlinking = false;
+
+
+        // --- Random Blinking Loop ---
+        function setupBlinkingLoop() {
+            function triggerBlink() {
+                isBlinking = true;
+                setTimeout(() => {
+                    isBlinking = false;
+                    setTimeout(triggerBlink, 2000 + Math.random() * 4000);
+                }, 150);
+            }
+            setTimeout(triggerBlink, 3000);
+        }
+
+                // Keep these outside the function at line 124
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let currentRotationY = 0;
+        let cameraDistance = 1.5; 
+
+
+        // --- Core Rendering and Animation Frame Runtime Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (typeof renderer !== 'undefined' && isDragging === false && currentRotationY === 0) {
+                initControls();
+            }
+
+            const deltaTime = clock.getDelta();
+            const time = clock.getElapsedTime();
+                if (vrmMixer) {
+                vrmMixer.update(deltaTime);
+            }
+            
+            if (currentVrm) {
+                currentVrm.update(deltaTime);
+                
+                // 1. Idle Body Swaying and Breath Mechanics
+                if(currentVrm.humanoid) {
+                    const chest = currentVrm.humanoid.getBoneNode('chest');
+                    const neck = currentVrm.humanoid.getBoneNode('neck');
+                    const head = currentVrm.humanoid.getBoneNode('head');
+                    
+                    if (chest) chest.rotation.z = 0.01 * Math.sin(time * 1.5);
+                    if (neck) neck.rotation.y = 0.02 * Math.cos(time * 0.8);
+                    if (head) head.rotation.x = 0.015 * Math.sin(time * 1.1);
+
+                    // Drop arms naturally into a resting pose rather than a stiff T-pose
+                    const leftArm = currentVrm.humanoid.getBoneNode('leftUpperArm');
+                    const rightArm = currentVrm.humanoid.getBoneNode('rightUpperArm');
+
+                    if (leftArm) leftArm.rotation.z = 1.2;    // Rotates the arm down on the Z-axis
+                    if (rightArm) rightArm.rotation.z = -1.2; // Rotates the opposite arm down
+                }
+                
+                // 2. Manage Eye Blink States
+                if (isBlinking) {
+                    blinkValue = Math.min(blinkValue + deltaTime * 15, 1.0);
+                } else {
+                    blinkValue = Math.max(blinkValue - deltaTime * 15, 0.0);
+                }
+
+                // Apply blending weights across model morph expression hooks
+                const manager = currentVrm.expressionManager || currentVrm.blendShapeProxy;
+                if (manager) {
+                    manager.setValue('aa', mouthOpenValue);
+                    manager.setValue('aaa', mouthOpenValue);
+                    manager.setValue('blink', blinkValue);
+                    manager.setValue('blink_l', blinkValue);
+                    manager.setValue('blink_r', blinkValue);
+                    manager.update();
+                }
+            }
+
+            function initControls() {
+            if (typeof renderer === 'undefined' || !renderer.domElement) return;
+
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const deltaX = e.clientX - previousMousePosition.x;
+                currentRotationY -= deltaX * 0.005;
+                camera.position.x = Math.sin(currentRotationY) * cameraDistance;
+                camera.position.z = Math.cos(currentRotationY) * cameraDistance;
+                camera.lookAt(0.0, 1.35, 0.0);
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            renderer.domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                cameraDistance += e.deltaY * 0.00001;
+                cameraDistance = Math.max(0.5, Math.min(cameraDistance, 5.0));
+                camera.position.x = Math.sin(currentRotationY) * cameraDistance;
+                camera.position.z = Math.cos(currentRotationY) * cameraDistance;
+                camera.lookAt(0.0, 1.35, 0.0);
+            }, { passive: false });
+        }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+
+        function playVrmAnimation(name) {
+            const clip = animationClips[name];
+            if (!vrmMixer || !clip) return;
+
+            const newAction = vrmMixer.clipAction(clip);
+            newAction.reset();
+            newAction.setLoop(THREE.LoopOnce);
+            newAction.clampWhenFinished = false; // Makes it return to your neutral wobble smoothly
+
+            if (currentAction) {
+                // Smoothly transition from old animation to the new one
+                newAction.time = 0;
+                newAction.play();
+                currentAction.crossFadeTo(newAction, 0.3, true);
+            } else {
+                newAction.play();
+            }
+
+            currentAction = newAction;
+
+            // Listen for when the file finishes playing to clear out currentAction
+            vrmMixer.addEventListener('finished', (e) => {
+                if (e.action === newAction) {
+                    currentAction = null;
+                }
+            });
+        }
+
+
+        // --- Communication Framework Connections ---
+        const statusDiv = document.getElementById('status');
+        const chatHistory = document.getElementById('chat-history');
+        const textInput = document.getElementById('text-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        function sendTextMessage() {
+            const text = textInput.value.trim();
+            if (!text) return;
+            
+            statusDiv.innerText = "Status: Thinking...";
+            textInput.value = "";
+
+            const formData = new FormData();
+            formData.append('text', text);
+
+            fetch('/api/chat-text', { method: 'POST', cache: 'no-store', body: formData })
+            .then(async (response) => {
+            // 1. Safely extract our custom header from the stream
+            const anim = response.headers.get('x-detected-animation');
+            const aiText = response.headers.get('x-ai-text') || '...';
+            console.log("Network trigger received:", anim); 
+            if (anim && anim !== 'neutral') {
+                playVrmAnimation(anim);
+            }
+                //chatHistory.value += `You: ${user_text}\nVTuber: ${aiText}\n\n`;
+                chatHistory.value += `You: ${text}\nVTuber: ${aiText}\n\n`;
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+
+                return response.blob();
+            })
+            .then(blob => {
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioCtx.createMediaElementSource(audio);
+                const analyzer = audioCtx.createAnalyser();
+                analyzer.fftSize = 32;
+                source.connect(analyzer);
+                analyzer.connect(audioCtx.destination);
+                
+                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                
+                function trackMouth() {
+                    if (!audio.paused) {
+                        analyzer.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                        let average = sum / dataArray.length;
+                        mouthOpenValue = Math.min(average / 40, 1.0);
+                        requestAnimationFrame(trackMouth);
+                    } else {
+                        mouthOpenValue = 0;
+                        statusDiv.innerText = "Status: Ready";
+                    }
+                }
+
+                statusDiv.innerText = "Status: Speaking...";
+                audio.play();
+                trackMouth();
+            })
+            .catch(err => { console.error(err); statusDiv.innerText = "Status: Server Connection Error"; });
+        }
+
+        sendBtn.addEventListener('click', sendTextMessage);
+        textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
+
+        //delete the addeventlister later.
+
+        //window.addEventListener('keydown', (event) => {
+        //    if (event.code === 'Space') {
+        //        // Change jumpAnimation to animationClips['jump']
+        //        if (vrmMixer && animationClips['jump']) {
+        //            const action = vrmMixer.clipAction(animationClips['jump']);
+        //            action.reset();                  
+        //            action.setLoop(THREE.LoopOnce);  
+        //            action.play();                   
+        //        }
+        //    }
+        //});
+
+
+
+    </script>
+</body>
+</html>
