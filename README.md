@@ -11,3 +11,6 @@ This is a simple media player, made with pygame, it can be used as a soundboard 
 # AnimationChecker
 
 This project is made to check vrma files on a vrm model. It uses python, javascript and html. To use it, start the server through command prompt and go to localhost, choose your specific files and they will play automatically, the animations can also be paused and the camera is moveable.
+
+## AiPNGTuber
+A specialized variation of the AI VTuber platform optimized for 2D graphics. It processes and animates static PNG image assets in real time based on AI tracking inputs rather than rendering full 3D models.
